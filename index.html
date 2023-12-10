@@ -1,0 +1,226 @@
+<html>
+	<head>
+		<style>
+			body {
+				margin: auto;
+				max-width: 700px;
+				background-color: white;
+				padding: 10px;
+			}
+			canvas {
+				background-color: black;
+				width: 48%;
+				border: 1px solid black;
+			}
+		</style>
+	</head>
+
+	<body>	
+		<center>
+			<br>
+			<h1>Autostereogram Generator</h1>
+
+
+			<canvas id="draw" width="1000" height="1000"></canvas>
+			<canvas id="output" width="1000" height="1000"></canvas>
+			<br>
+			<br>
+	        <input id="image-file" type="file" accept=".png,.jpg," onchange="loadFile(event)"/>
+			<button onclick="render()">Render</button>
+			<button onclick="download_output()">Download</button>
+
+		</center>
+
+
+		<h3 style="margin-top: 50px;">About</h3>
+		<p>
+			An <a href="https://en.wikipedia.org/wiki/Autostereogram" target="_blank">Autostereogram</a> is an image that can be percieved as 3D when viewed properly. Repeating patterns can make your eyes focus on two different things while perceiving them as one, creating the illusion of depth. 
+		</p>
+		<p>
+			To make your own, upload a black and white image. White will be percieved as close, black will be far away. Click "Render". To view the image, hold the image close to your face, and cross your eyes so that the two red dots on the top of the image overlap.
+		</p>
+
+
+		<h3 style="margin-top: 50px;">Example</h3>
+		<center>
+			<img src="input.jpg" style="width: 300px"/>
+			<img src="output.png" style="width: 300px">
+		</center>
+
+		<br><br><br><bR>
+
+
+	</body>
+
+
+	<script>
+
+		const size = 1000;
+		const pad = size / 10;
+		const S = pad / 4;
+
+
+
+		const canvas = document.getElementById('output');
+		const ctx = canvas.getContext('2d');
+ 	
+		const dcanvas = document.getElementById('draw');
+		const dctx = dcanvas.getContext('2d');
+		dctx.filter = 'grayscale(1)';
+
+
+		function get_depths() {
+			let im = dctx.getImageData(0, 0, dcanvas.width, dcanvas.height).data;
+			let ret = [];
+			let i = 0;
+			for (let c = 0; c < dcanvas.width; c++) {
+				ret.push([]);
+			}
+			for (let c = 0; c < dcanvas.width; c++) {
+				for (let r = 0; r < dcanvas.height; r++) {
+
+					let red = im[i];
+					let green = im[i+1];
+					let blue = im[i+2];
+
+					ret[c][r] = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+					i += 4;
+				}
+			}
+			return ret;
+		}
+
+
+		function r() {
+			return Math.round(255 * Math.random());
+		}
+
+		// function random_color() {
+		// 	return 'rgb(' + r() + ',' + r() + ',' + r() + ')';
+		// }
+
+		function random_similar_color(r, g, b, radius) {
+			let R = (Math.random() * 2 * radius - radius) + r;
+			let G = (Math.random() * 2 * radius - radius) + g;
+			let B = (Math.random() * 2 * radius - radius) + b;
+			return 'rgb(' + R + ',' + G + ',' + B + ')';
+		}
+
+
+
+		function test() {
+
+			// place things on the draw canvas
+			dctx.fillStyle = 'black';
+			dctx.fillRect(0, 0, size, size);
+
+
+			// const grd = dctx.createLinearGradient(200, 0, 300, 0);
+			// grd.addColorStop(0, "black");
+			// grd.addColorStop(1, "white");
+			// dctx.fillStyle = grd;
+			// dctx.fillRect(200, 200, 150, 80);
+
+
+			// Create gradient
+			const grd = dctx.createRadialGradient(3*size/4, 3*size/4, 0, 3*size/4, 3*size/4, size/3);
+			grd.addColorStop(0, "white");
+			grd.addColorStop(1, "transparent");
+			dctx.fillStyle = grd;
+			dctx.fillRect(0, 0, size, size);
+
+			dctx.fillStyle = 'lightgrey';
+			dctx.beginPath();
+			dctx.moveTo(110, 50);
+			dctx.lineTo(150, 200);
+			dctx.lineTo(300, 50);
+			dctx.closePath();
+			dctx.fill();
+
+			dctx.fillStyle = 'grey';
+			dctx.beginPath();
+			dctx.arc(300, 400, 70, 0, 2 * Math.PI);
+			dctx.fill();
+		}
+
+
+
+
+		function render() {
+			let depths = get_depths();
+
+			let data = [];
+			for (let r = 0; r < size; r++) {
+				data.push([]);
+			}
+
+			let seed = [r(), r(), r()];
+
+			for (let r = 0; r < size; r++) {
+				for (let c = 0; c < pad; c++) {
+					data[r][c]= random_similar_color(...seed, 200);
+				}
+				for (let c = pad; c < size; c++) {
+					let shift = Math.round(depths[r][c] * S);
+					// shift = shift ? shift - 1 : 0;
+					// console.log("-----")
+					// console.log("c =", c);
+					// console.log("shift =", shift);
+					// console.log("look =", c - (pad - shift))
+
+					// console.log(JSON.parse(JSON.stringify(data[r])));
+					// console.log(data[r][c - pad + shift]);
+					data[r][c] = data[r][c - pad + shift];
+					
+				}
+			}
+
+			for (let r = 0; r < size; r++) {
+				for (let c = 0; c < size; c++) {
+					ctx.fillStyle = data[r][c] || 'black';
+					ctx.fillRect(c, r, 1, 1);
+				}
+			}
+
+
+
+			ctx.fillStyle = 'red';
+			ctx.beginPath();
+			ctx.arc(size / 2 - pad / 2, 15, 5, 0, 2 * Math.PI);
+			ctx.fill();
+
+			ctx.fillStyle = 'red';
+			ctx.beginPath();
+			ctx.arc(size / 2 + pad / 2, 15, 5, 0, 2 * Math.PI);
+			ctx.fill();
+		}
+
+
+
+		function loadFile(event) {
+		  if (event.target.files.length == 0) {
+		    return;
+		  }
+		  image_obj = new Image();
+		  image_obj.src = URL.createObjectURL(event.target.files[0]);
+		  image_obj.onload = function() {
+		    dctx.drawImage(image_obj, pad, 50, 800, 800);
+		  }
+		}
+
+
+
+		function download_output() {
+		  var link = document.createElement('a');
+		  link.download = 'my-autostereogram.png';
+		  link.href = canvas.toDataURL();
+		  link.click();
+		  // window.location.href = output_canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
+		}
+
+
+
+
+	</script>
+
+</html>
